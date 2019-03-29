@@ -74,10 +74,10 @@ class AvatarRunner(object):
             self.print_logs()
             print(e)
             action = WaitAction().serialise()
-        except AttributeError as e:
-            self.print_logs()
-            print(e)
-            action = WaitAction().serialise()
+        # except AttributeError as e:
+        #     self.print_logs()
+        #     print(e)
+        #     action = WaitAction().serialise()
         except Exception as e:
             self.print_logs()
             user_traceback = self.get_only_user_traceback()

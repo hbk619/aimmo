@@ -18,5 +18,8 @@ class Location(object):
     def __ne__(self, other):
         return not self == other
 
+    def __lt__(self, other):
+        return 0 > (self.x ** 2 + self.y ** 2) ** 0.5 - (other.x ** 2 + other.y ** 2) ** 0.5
+
     def __hash__(self):
         return hash((self.x, self.y))

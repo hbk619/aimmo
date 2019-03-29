@@ -1,17 +1,16 @@
+import json
 import logging
 import os
 import subprocess
 import time
 from abc import ABCMeta, abstractmethod
-
-import requests
-from eventlet.semaphore import Semaphore
 from concurrent import futures
 from concurrent.futures import ALL_COMPLETED
-import kubernetes
-import docker
-import json
 
+import docker
+import kubernetes
+import requests
+from eventlet.semaphore import Semaphore
 
 LOGGER = logging.getLogger(__name__)
 
@@ -291,6 +290,7 @@ class KubernetesGameManager(GameManager):
         try:
             index_to_delete = paths.index(path)
         except ValueError:
+            LOGGER.info('GOT SOMETHING VERY WRONG')
             return
 
         patch = [
@@ -299,7 +299,6 @@ class KubernetesGameManager(GameManager):
                 "path": "/spec/rules/0/http/paths/{}".format(index_to_delete)
             }
         ]
-
         self.extension_api.patch_namespaced_ingress("aimmo-ingress", "default", patch)
 
     def _remove_resources(self, game_id, resource_type):
@@ -315,10 +314,13 @@ class KubernetesGameManager(GameManager):
 
         resources = list_resource_function(namespace=K8S_NAMESPACE,
                                            label_selector=','.join([app_label, game_label]))
-
+        LOGGER.info(resources)
         for resource in resources.items:
             LOGGER.info('Removing: {}'.format(resource.metadata.name))
+            # GETS STUCK HERE
             delete_resource_function(resource.metadata.name, K8S_NAMESPACE, kubernetes.client.V1DeleteOptions())
+            # GETS STUCK HERE
+            LOGGER.info('GAME DELETED')
 
     def create_game(self, game_id, game_data):
         self._create_game_service(game_id)
