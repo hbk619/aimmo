@@ -55,7 +55,7 @@ def find_path(world_state, start, goal):
                 neighbor = world_state.get_cell(location).location
             else:
                 continue
-            
+
             tentative_g_score = gscore[current] + heuristic(current, neighbor)
 
             if neighbor in close_set and tentative_g_score >= gscore.get(neighbor, 0):
@@ -70,6 +70,8 @@ def find_path(world_state, start, goal):
                 heappush(oheap, (fscore[neighbor], neighbor))
 
     return False
+
+
 def find_path_no_direction(world_state, start, goal):
     """
     Finds the shortest path between to cells on the grid.
@@ -121,9 +123,3 @@ def find_path_no_direction(world_state, start, goal):
                 heappush(oheap, (fscore[neighbor], neighbor))
 
     return False
-
-
-
-"""Here is an example of using my algo with a numpy array,
-   astar(array, start, destination)
-   astar function returns a list of points (shortest path)"""
