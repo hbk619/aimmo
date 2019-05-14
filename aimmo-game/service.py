@@ -5,23 +5,27 @@ import asyncio
 import json
 import logging
 import os
-import pickle
+import signal
 import sys
 from urllib.parse import parse_qs
 
+import aiohttp
 import aiohttp_cors
 import socketio
 from aiohttp import web
 from aiohttp_wsgi import WSGIHandler
 from prometheus_client import make_wsgi_app
 
+from activity_monitor import ActivityMonitor, StatusOptions
+from authentication import generate_game_token
 from simulation import map_generator
 from simulation.game_runner import GameRunner
-from simulation.worker_managers import WORKER_MANAGERS
 
 app = web.Application()
 cors = aiohttp_cors.setup(app)
 
+
+activity_monitor = ActivityMonitor()
 socketio_server = socketio.AsyncServer(async_handlers=True)
 
 routes = web.RouteTableDef()
@@ -70,7 +74,8 @@ class GameAPI(object):
         async def world_update_on_connect(sid, environ):
             query = environ["QUERY_STRING"]
             self._find_avatar_id_from_query(sid, query)
-            await self.send_updates()
+            activity_monitor.active_users = len(self._socket_session_id_to_player_id)
+            await self.send_updates(on_connect=True)
 
         return world_update_on_connect
 
@@ -80,16 +85,20 @@ class GameAPI(object):
             LOGGER.info("Socket disconnected for session id:{}. ".format(sid))
             try:
                 del self._socket_session_id_to_player_id[sid]
+                activity_monitor.active_users = len(
+                    self._socket_session_id_to_player_id
+                )
             except KeyError:
                 pass
 
         return remove_session_id_from_mappings
 
-    async def send_updates(self):
+    async def send_updates(self, on_connect=False):
         player_id_to_worker = self.worker_manager.player_id_to_worker
         await self._send_have_avatars_code_updated(player_id_to_worker)
         await self._send_game_state()
-        await self._send_logs(player_id_to_worker)
+        if not on_connect:
+            await self._send_logs(player_id_to_worker)
 
     def _find_avatar_id_from_query(self, session_id, query_string):
         """
@@ -118,7 +127,11 @@ class GameAPI(object):
         for sid, player_id in socket_session_id_to_player_id_copy.items():
             avatar_logs = player_id_to_workers[player_id].log
             if should_send_logs(avatar_logs):
-                await socketio_server.emit("log", avatar_logs, room=sid)
+                await socketio_server.emit(
+                    "log",
+                    {"message": avatar_logs, "turn_count": self.game_state.turn_count},
+                    room=sid,
+                )
 
     async def _send_game_state(self):
         serialized_game_state = self.game_state.serialize()
@@ -140,9 +153,7 @@ class GameAPI(object):
 def create_runner(port):
     settings = json.loads(os.environ["settings"])
     generator = getattr(map_generator, settings["GENERATOR"])(settings)
-    worker_manager_class = WORKER_MANAGERS[os.environ.get("WORKER_MANAGER", "local")]
     return GameRunner(
-        worker_manager_class=worker_manager_class,
         game_state_generator=generator.get_game_state,
         django_api_url=os.environ.get(
             "GAME_API_URL", "http://localhost:8000/aimmo/api/games/"
@@ -153,11 +164,31 @@ def create_runner(port):
 
 def run_game(port):
     game_runner = create_runner(port)
+
+    generate_game_token(game_runner.communicator.django_api_url)
+
     game_api = GameAPI(
         game_state=game_runner.game_state, worker_manager=game_runner.worker_manager
     )
     game_runner.set_end_turn_callback(game_api.send_updates)
     asyncio.ensure_future(game_runner.run())
+
+
+async def on_shutdown(app):
+    """
+    Sends a request to clear the token, this will happen when the pod aiohttp server recieves a shutdown signal.
+
+    allows the game to re-verify itself after it's been shutdown
+    """
+    token_url = (
+        os.environ.get("GAME_API_URL", "http://localhost:8000/aimmo/api/games/")
+        + "/token/"
+    )
+    async with aiohttp.ClientSession() as session:
+        async with session.patch(
+            token, json={"token": ""}, headers={"Game-token": os.environ["TOKEN"]}
+        ) as response:
+            return response
 
 
 if __name__ == "__main__":
@@ -168,7 +199,7 @@ if __name__ == "__main__":
         app, socketio_path=os.environ.get("SOCKETIO_RESOURCE", "socket.io")
     )
 
-    if os.environ["WORKER_MANAGER"] == "local":
+    if os.environ["WORKER"] == "local":
         port = int(os.environ["EXTERNAL_PORT"])
     else:
         port = int(sys.argv[2])
@@ -178,5 +209,6 @@ if __name__ == "__main__":
     wsgi_handler = WSGIHandler(make_wsgi_app())
     app.add_routes([web.get("/{path_info:metrics}", wsgi_handler)])
 
+    app.on_shutdown.append(on_shutdown)
     LOGGER.info("starting the server")
     web.run_app(app, host=host, port=port)

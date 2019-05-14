@@ -9,8 +9,12 @@ import traceback
 from io import StringIO
 
 from RestrictedPython import compile_restricted, utility_builtins
-from RestrictedPython.Guards import (full_write_guard, guarded_setattr,
-                                     safe_builtins, safer_getattr)
+from RestrictedPython.Guards import (
+    full_write_guard,
+    guarded_setattr,
+    safe_builtins,
+    safer_getattr,
+)
 
 import simulation.action as avatar_action
 import simulation.direction as direction
@@ -34,7 +38,6 @@ __metaclass__ = type
 
 restricted_globals = dict(__builtins__=safe_builtins)
 
-restricted_globals["_getitem_"] = list.__getitem__
 restricted_globals["_getattr_"] = _getattr_
 restricted_globals["_setattr_"] = _setattr_
 restricted_globals["_getiter_"] = list
@@ -46,7 +49,6 @@ restricted_globals["__name__"] = "Avatar"
 add_actions_to_globals()
 restricted_globals["direction"] = direction
 restricted_globals["random"] = utility_builtins["random"]
-restricted_globals["find_path"] = find_path
 
 
 class CodeUpdater:
