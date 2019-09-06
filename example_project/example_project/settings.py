@@ -61,7 +61,7 @@ STATIC_ROOT = os.path.join(os.path.dirname(__file__), "static")
 STATIC_URL = "/static/"
 SECRET_KEY = "not-a-secret"
 
-ROOT_URLCONF = "django_autoconfig.autourlconf"
+ROOT_URLCONF = "example_project.urls"
 
 WSGI_APPLICATION = "example_project.wsgi.application"
 
@@ -81,9 +81,9 @@ LOGGING = {
     "loggers": {"views": {"handlers": ["console"], "level": "DEBUG"}},
 }
 
-LOGIN_URL = "/aimmo/accounts/login/"
+LOGIN_URL = "/kurono/accounts/login/"
 
-LOGIN_REDIRECT_URL = "/aimmo/"
+LOGIN_REDIRECT_URL = "/kurono/"
 
 MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -97,9 +97,6 @@ MIDDLEWARE = [
 
 def get_game_url_base_and_path(game):
     if os.environ.get("AIMMO_MODE", "") == "minikube":
-        output = subprocess.check_output(
-            [os.environ["MINIKUBE_PATH"], "service", "game-%s" % game, "--url"]
-        )
         return "local.aimmo.codeforlife.education", "/game-%s" % game
     else:
         return "localhost", ""
@@ -120,6 +117,7 @@ try:
     from example_project.local_settings import *  # pylint: disable=E0611
 except ImportError:
     pass
+
 
 from django_autoconfig import autoconfig
 

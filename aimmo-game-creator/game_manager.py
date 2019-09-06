@@ -1,9 +1,11 @@
 import json
 import logging
 import os
+import secrets
 import subprocess
 import time
 from abc import ABCMeta, abstractmethod
+from base64 import b64encode
 from concurrent import futures
 from concurrent.futures import ALL_COMPLETED
 from enum import Enum
@@ -12,10 +14,15 @@ import docker
 import kubernetes
 import requests
 from eventlet.semaphore import Semaphore
+from kubernetes.client.rest import ApiException
+
+from kube_components import TokenSecretCreator
 
 LOGGER = logging.getLogger(__name__)
 
 K8S_NAMESPACE = "default"
+NUM_BYTES_FOR_TOKEN_GENERATOR = 16
+TOKEN_MAX_LENGTH = 24
 
 
 class _GameManagerData(object):
@@ -60,9 +67,9 @@ class _GameManagerData(object):
 
 
 class GameStatus(Enum):
-    RUNNING = 'r'
-    PAUSED = 'p'
-    STOPPED = 's'
+    RUNNING = "r"
+    PAUSED = "p"
+    STOPPED = "s"
 
 
 class GameManager(object):
@@ -75,6 +82,12 @@ class GameManager(object):
         self._data = _GameManagerData()
         self.games_url = games_url
         super(GameManager, self).__init__()
+
+    def _generate_game_token(self):
+        token = secrets.token_urlsafe(nbytes=NUM_BYTES_FOR_TOKEN_GENERATOR)
+        # Max length of the auth_token field in the models
+        token = token[:TOKEN_MAX_LENGTH] if len(token) > TOKEN_MAX_LENGTH else token
+        return token
 
     @abstractmethod
     def create_game(self, game_id, game_data):
@@ -110,21 +123,26 @@ class GameManager(object):
         try:
             LOGGER.info("Waking up")
             games = requests.get(self.games_url).json()
+            LOGGER.debug(f"Recieved Games: {games}")
         except (requests.RequestException, ValueError) as ex:
             LOGGER.error("Failed to obtain game data")
             LOGGER.exception(ex)
         else:
             games_to_add = {
                 id: games[id]
-                for id in self._data.add_new_games(games.keys())
-                if games[id]["status"] is not GameStatus.STOPPED
+                for id in self._data.add_new_games(games)
+                if games[id]["status"] != GameStatus.STOPPED.value
             }
 
             # Add missing games
             self._parallel_map(self.recreate_game, games_to_add.items())
             # Delete extra games
             known_games = set(games.keys())
-            stopped_games = set(id for id in games.keys() if games[id]["status"] is GameStatus.STOPPED)
+            stopped_games = set(
+                id
+                for id in games.keys()
+                if games[id]["status"] == GameStatus.STOPPED.value
+            )
             removed_game_ids = self._data.remove_unknown_games(known_games).union(
                 self._data.remove_stopped_games(stopped_games)
             )
@@ -155,6 +173,9 @@ class LocalGameManager(GameManager):
 
     def __init__(self, *args, **kwargs):
         self.games = {}
+        with open("/tokens/local_tokens.json", "r") as file:
+            self.tokens = json.loads(file.read())
+
         super(LocalGameManager, self).__init__(*args, **kwargs)
 
     def create_game(self, game_id, game_data):
@@ -172,14 +193,16 @@ class LocalGameManager(GameManager):
         port = str(6001 + int(game_id) * 1000)
         client = docker.from_env()
 
+        self.check_token(game_id)
         template = json.loads(os.environ.get("CONTAINER_TEMPLATE", "{}"))
+        template["environment"]["TOKEN"] = self.tokens[game_id]
         setup_container_environment_variables(template, game_data)
         template["ports"] = {"{}/tcp".format(port): ("0.0.0.0", port)}
 
         self.games[game_id] = client.containers.run(
             name="aimmo-game-{}".format(game_id),
             image="ocadotechnology/aimmo-game:test",
-            **template
+            **template,
         )
         game_url = "http://{}:{}".format(self.host, port)
         LOGGER.info("Game started - {}, listening at {}".format(game_id, game_url))
@@ -187,11 +210,21 @@ class LocalGameManager(GameManager):
     def delete_game(self, game_id):
         if game_id in self.games:
             client = docker.from_env()
-            workers = client.containers.list(filters={'name': f'aimmo-{game_id}-'})
+            workers = client.containers.list(filters={"name": f"aimmo-{game_id}-"})
             for worker in workers:
                 worker.remove(force=True)
             self.games[game_id].remove(force=True)
             del self.games[game_id]
+
+    def check_token(self, game_id):
+        try:
+            if not self.tokens[game_id]:
+                self.tokens[game_id] = self._generate_game_token()
+        except KeyError:
+            self.tokens[game_id] = ""
+
+        with open("/tokens/local_tokens.json", "w+") as file:
+            file.write(json.dumps(self.tokens))
 
 
 class KubernetesGameManager(GameManager):
@@ -201,6 +234,7 @@ class KubernetesGameManager(GameManager):
         kubernetes.config.load_incluster_config()
         self.extension_api = kubernetes.client.ExtensionsV1beta1Api()
         self.api = kubernetes.client.CoreV1Api()
+        self.secret_creator = TokenSecretCreator()
 
         super(KubernetesGameManager, self).__init__(*args, **kwargs)
         self._create_ingress_paths_for_existing_games()
@@ -219,7 +253,7 @@ class KubernetesGameManager(GameManager):
         """
         return "game-{}".format(game_id)
 
-    def _make_rc(self, environment_variables, game_id):
+    def _make_rc(self, environment_variables, game_id, is_minikube):
         container = kubernetes.client.V1Container(
             env=[
                 kubernetes.client.V1EnvVar(name=env_name, value=env_value)
@@ -238,6 +272,7 @@ class KubernetesGameManager(GameManager):
             image="ocadotechnology/aimmo-game:{}".format(
                 os.environ.get("IMAGE_SUFFIX", "latest")
             ),
+            image_pull_policy="Never" if is_minikube else "Always",
             ports=[kubernetes.client.V1ContainerPort(container_port=5000)],
             name="aimmo-game",
             resources=kubernetes.client.V1ResourceRequirements(
@@ -282,7 +317,7 @@ class KubernetesGameManager(GameManager):
             spec=rc_manifest, metadata=rc_metadata
         )
 
-    def _create_game_rc(self, game_id, environment_variables):
+    def _create_game_rc(self, game_id, environment_variables, is_minikube):
         environment_variables[
             "SOCKETIO_RESOURCE"
         ] = KubernetesGameManager._create_game_name(game_id)
@@ -293,7 +328,7 @@ class KubernetesGameManager(GameManager):
         environment_variables["WORKER"] = "kubernetes"
         environment_variables["EXTERNAL_PORT"] = "5000"
 
-        rc = self._make_rc(environment_variables, game_id)
+        rc = self._make_rc(environment_variables, game_id, is_minikube)
         self.api.create_namespaced_replication_controller(K8S_NAMESPACE, rc)
 
     def _make_service(self, game_id):
@@ -319,6 +354,14 @@ class KubernetesGameManager(GameManager):
     def _create_game_service(self, game_id):
         service = self._make_service(game_id)
         self.api.create_namespaced_service(K8S_NAMESPACE, service)
+
+    def _create_game_secret(self, game_id):
+        name = KubernetesGameManager._create_game_name(game_id) + "-token"
+        try:
+            secret = self.api.read_namespaced_secret(name, K8S_NAMESPACE)
+        except ApiException:
+            data = {"token": self._generate_game_token()}
+            self.secret_creator.create_secret(name, K8S_NAMESPACE, data)
 
     def _add_path_to_ingress(self, game_id):
         backend = kubernetes.client.V1beta1IngressBackend(
@@ -366,6 +409,10 @@ class KubernetesGameManager(GameManager):
                 self.api.list_namespaced_service,
                 self.api.delete_namespaced_service,
             ),
+            "Secret": (
+                self.api.list_namespaced_secret,
+                self.api.delete_namespaced_secret,
+            ),
         }
 
         list_resource_function, delete_resource_function = resource_functions[
@@ -384,8 +431,11 @@ class KubernetesGameManager(GameManager):
             delete_resource_function(resource.metadata.name, K8S_NAMESPACE)
 
     def create_game(self, game_id, game_data):
+        is_minikube = "USING_MINIKUBE" in os.environ
+
+        self._create_game_secret(game_id)
         self._create_game_service(game_id)
-        self._create_game_rc(game_id, game_data)
+        self._create_game_rc(game_id, game_data, is_minikube)
         self._add_path_to_ingress(game_id)
         LOGGER.info("Game started - {}".format(game_id))
 
@@ -394,6 +444,7 @@ class KubernetesGameManager(GameManager):
         self._remove_resources(game_id, "ReplicationController")
         self._remove_resources(game_id, "Pod")
         self._remove_resources(game_id, "Service")
+        self._remove_resources(game_id, "Secret")
 
 
 GAME_MANAGERS = {"local": LocalGameManager, "kubernetes": KubernetesGameManager}

@@ -2,19 +2,21 @@
 
 exports[`<NavigationBar /> renders correctly 1`] = `
 <styled.nav>
-  <WithStyles(AppBar)
+  <WithStyles(ForwardRef(AppBar))
     position="sticky"
   >
-    <Styled(WithStyles(Toolbar))>
-      <WithStyles(IconButton)
-        aria-label="Close"
+    <Styled(WithStyles(ForwardRef(Toolbar)))>
+      <WithStyles(ForwardRef(IconButton))
+        aria-label="Kurono dashboard"
         color="inherit"
-        href="/aimmo"
+        href="/kurono"
       >
-        <CloseIcon />
-      </WithStyles(IconButton)>
-    </Styled(WithStyles(Toolbar))>
-  </WithStyles(AppBar)>
+        <KuronoLogo
+          fontSize="large"
+        />
+      </WithStyles(ForwardRef(IconButton))>
+    </Styled(WithStyles(ForwardRef(Toolbar)))>
+  </WithStyles(ForwardRef(AppBar))>
 </styled.nav>
 `;
 

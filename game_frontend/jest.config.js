@@ -1,5 +1,6 @@
 module.exports = {
   'testURL': 'http://localhost/',
-  'setupTestFrameworkScriptFile': '<rootDir>/src/setupTests.js',
-  'snapshotSerializers': ['enzyme-to-json/serializer']
+  'setupFilesAfterEnv': ['<rootDir>/src/setupTests.js'],
+  'snapshotSerializers': ['enzyme-to-json/serializer'],
+  'modulePathIgnorePatterns': ['<rootDir>/dist/']
 }

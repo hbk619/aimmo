@@ -1,24 +1,40 @@
-import os
-from unittest.mock import patch
+import secrets
+from base64 import b64encode as encode
 
+import kubernetes
 import pytest
-from authentication import generate_game_token
+
+from authentication import _decode_token_from_secret
+
+TOKEN_MAX_LENGTH = 24
 
 
-@patch("requests.patch")
-def test_token_generation_non_empty(mock_patch):
-    generate_game_token("http://test")
+@pytest.fixture
+def secret():
+    """
+    Gives a kubernetes secret object similar to the one received by the game when
+    retrieving its secret. The token is randomly generated as it would be in practice,
+    uses less bytes to prevent random test failure.
+    """
+    test_token = encode(secrets.token_urlsafe(nbytes=12).encode("utf-8"))
+    return kubernetes.client.V1Secret(
+        kind="Secret",
+        data={"token": test_token},
+        metadata=kubernetes.client.V1ObjectMeta(
+            name="Test-Secret", namespace="default"
+        ),
+    )
 
-    assert os.environ["TOKEN"]
-    assert not os.environ == ""
 
+def test_get_token_from_secret(secret):
+    """
+    Tests that we can correctly retrieve a token from the Kubernetes secret object.
 
-@patch("requests.patch")
-def token_generation_is_unique(mock_patch):
-    generate_game_token("http://test")
-
-    old_token = os.environ["TOKEN"]
-
-    generate_game_token("http://test")
-
-    assert not old_token == os.environ["TOKEN"]
+    Note this is not an actual secret that would be on a cluster, it is the object returned
+    when listing/reading these secrets.
+    """
+    token = None
+    token = _decode_token_from_secret(secret)
+    assert token
+    assert isinstance(token, str)
+    assert len(token) <= TOKEN_MAX_LENGTH

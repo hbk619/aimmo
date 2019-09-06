@@ -1,13 +1,29 @@
+import base64
+import logging
 import os
-import secrets
 
+import kubernetes
 import requests
+from requests import codes
 
-NUM_BYTES_FOR_TOKEN_GENERATOR = 16
+LOGGER = logging.getLogger(__name__)
 
 
-def generate_game_token(django_api_url, num_bytes=NUM_BYTES_FOR_TOKEN_GENERATOR):
-    """Generate a random token for the game."""
-    new_token = secrets.token_urlsafe(nbytes=num_bytes)
-    os.environ["TOKEN"] = new_token
-    requests.patch(django_api_url + "token/", data={"token": new_token})
+def _decode_token_from_secret(secret):
+    return base64.b64decode(secret.data["token"]).decode()
+
+
+async def initialize_game_token(communicator):
+    """Get game token and store it somewhere accessible."""
+    if os.environ["WORKER"] == "kubernetes":
+        kubernetes.config.load_incluster_config()
+        api = kubernetes.client.CoreV1Api()
+        game_id = os.environ.get("GAME_ID")
+
+        secret = api.read_namespaced_secret(f"game-{game_id}-token", "default")
+        os.environ["TOKEN"] = _decode_token_from_secret(secret)
+        LOGGER.info("Token set!")
+
+    response = await communicator.patch_token({"token": os.environ["TOKEN"]})
+    if response.status != codes["ok"]:
+        LOGGER.error(response)

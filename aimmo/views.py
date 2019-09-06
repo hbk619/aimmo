@@ -1,8 +1,5 @@
-import cPickle as pickle
-import json
 import logging
 import os
-from exceptions import UserCannotPlayGameException
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -12,16 +9,22 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.views.generic import TemplateView
-from rest_framework import status
-from rest_framework.authentication import BasicAuthentication
+from rest_framework import mixins, status, viewsets
+from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 import forms
 import game_renderer
-from app_settings import get_users_for_new_game, preview_user_required
+from app_settings import get_users_for_new_game
+from exceptions import UserCannotPlayGameException
 from models import Avatar, Game, LevelAttempt
-from permissions import CsrfExemptSessionAuthentication, GameHasToken
+from permissions import (
+    CanDeleteGameOrReadOnly,
+    CsrfExemptSessionAuthentication,
+    GameHasToken,
+)
+from serializers import GameSerializer
 
 LOGGER = logging.getLogger(__name__)
 
@@ -35,8 +38,17 @@ def _create_response(status, message):
     return JsonResponse(response)
 
 
+def _create_avatar_for_user(user, game_id):
+    initial_code_file_name = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)), "avatar_examples/simple_avatar.py"
+    )
+    with open(initial_code_file_name) as initial_code_file:
+        initial_code = initial_code_file.read()
+        avatar = Avatar.objects.create(owner=user, code=initial_code, game_id=game_id)
+    return avatar
+
+
 @login_required
-@preview_user_required
 def code(request, id):
     if not request.user:
         return HttpResponseForbidden()
@@ -46,15 +58,7 @@ def code(request, id):
     try:
         avatar = game.avatar_set.get(owner=request.user)
     except Avatar.DoesNotExist:
-        initial_code_file_name = os.path.join(
-            os.path.abspath(os.path.dirname(__file__)),
-            "avatar_examples/simple_avatar.py",
-        )
-        with open(initial_code_file_name) as initial_code_file:
-            initial_code = initial_code_file.read()
-        avatar = Avatar.objects.create(
-            owner=request.user, code=initial_code, game_id=id
-        )
+        avatar = _create_avatar_for_user(request.user, id)
     if request.method == "POST":
         avatar.code = request.POST["code"]
         avatar.save()
@@ -63,23 +67,7 @@ def code(request, id):
         return JsonResponse({"code": avatar.code})
 
 
-def list_games(request):
-    response = {
-        game.pk: {
-            "name": game.name,
-            "status": game.status,
-            "settings": json.dumps(game.settings_as_dict()),
-        }
-        for game in Game.objects.exclude_inactive()
-    }
-    return JsonResponse(response)
-
-
-class GameView(APIView):
-    """
-    View set for listing all users currently playing the given game
-    """
-
+class GameUsersView(APIView):
     authentication_classes = (CsrfExemptSessionAuthentication, BasicAuthentication)
     permission_classes = (GameHasToken,)
 
@@ -88,14 +76,6 @@ class GameView(APIView):
         data = self.serialize_users(game)
         return JsonResponse(data)
 
-    def patch(self, request, id):
-        game = get_object_or_404(Game, id=id)
-        self.check_object_permissions(self.request, game)
-        game.status = request.data["status"]
-        game.auth_token = ""
-        game.save()
-        return HttpResponse(status=status.HTTP_200_OK)
-
     def serialize_users(self, game):
         users = {"main_avatar": None, "users": []}
         for avatar in game.avatar_set.all():
@@ -103,6 +83,25 @@ class GameView(APIView):
                 users["main_avatar"] = avatar.id
             users["users"].append({"id": avatar.id, "code": avatar.code})
         return users
+
+
+class GameViewSet(
+    viewsets.GenericViewSet,
+    mixins.DestroyModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+):
+    authentication_classes = (CsrfExemptSessionAuthentication, SessionAuthentication)
+    queryset = Game.objects.all()
+    permission_classes = (CanDeleteGameOrReadOnly,)
+    serializer_class = GameSerializer
+
+    def list(self, request):
+        response = {}
+        for game in Game.objects.exclude_inactive():
+            serializer = GameSerializer(game)
+            response[game.pk] = serializer.data
+        return Response(response)
 
 
 def connection_parameters(request, game_id):
@@ -151,7 +150,6 @@ class GameTokenView(APIView):
         """
         game = get_object_or_404(Game, id=id)
         self.check_object_permissions(self.request, game)
-
         return Response(data={"token": game.auth_token})
 
     def patch(self, request, id):
@@ -216,7 +214,6 @@ def _add_and_return_level(num, user):
 
 
 @login_required
-@preview_user_required
 def add_game(request):
     playable_games = request.user.playable_games.all()
 
@@ -231,7 +228,8 @@ def add_game(request):
             users = get_users_for_new_game(request)
             if users is not None:
                 game.can_play.add(*users)
-            return redirect("aimmo/play", id=game.id)
+            _create_avatar_for_user(request.user, game.id)
+            return redirect("kurono/play", id=game.id)
     else:
         form = forms.AddGameForm(playable_games)
     return render(request, "players/add_game.html", {"form": form})

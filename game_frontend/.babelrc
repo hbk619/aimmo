@@ -1,20 +1,34 @@
 {
   "presets": [
-    ["@babel/preset-env", {
-      "useBuiltIns": "entry"
-    }],
-    "@babel/preset-react"
+    [
+      "@babel/preset-env",
+      {
+        "useBuiltIns": "entry"
+      }
+    ],
+    "@babel/preset-react",
+    "@babel/preset-typescript"
   ],
   "plugins": [
-    ["module-resolver", {
-      "cwd": "babelrc",
-      "root": ["./src"],
-      "alias": {
-        "features": "./src/redux/features",
-        "theme": "./src/theme",
-        "api": "./src/redux/api"
+    [
+      "module-resolver",
+      {
+        "cwd": "babelrc",
+        "root": [
+          "./src"
+        ],
+        "alias": {
+          "features": "./src/redux/features",
+          "theme": "./src/theme",
+          "api": "./src/redux/api",
+          "testHelpers": "./src/testHelpers"
+        }
       }
-    }],
-    "@babel/plugin-proposal-class-properties"
+    ],
+    [
+      "@babel/plugin-proposal-class-properties",
+    ],
+    "@babel/plugin-proposal-optional-chaining",
+    "@babel/plugin-proposal-nullish-coalescing-operator"
   ]
 }

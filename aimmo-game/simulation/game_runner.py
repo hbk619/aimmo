@@ -21,7 +21,7 @@ class GameRunner:
     def __init__(
         self,
         game_state_generator,
-        django_api_url,
+        communicator: DjangoCommunicator,
         port,
         worker_manager_class=WorkerManager,
     ):
@@ -29,9 +29,7 @@ class GameRunner:
 
         self.worker_manager = worker_manager_class(port=port)
         self.game_state = game_state_generator(AvatarManager())
-        self.communicator = DjangoCommunicator(
-            django_api_url=django_api_url, completion_url=django_api_url + "complete/"
-        )
+        self.communicator = communicator
         self.simulation_runner = ConcurrentSimulationRunner(
             communicator=self.communicator, game_state=self.game_state
         )
@@ -74,7 +72,7 @@ class GameRunner:
         await self.worker_manager.update_worker_codes(game_metadata["users"])
 
         self.update_main_user(game_metadata)
-        self.worker_manager.fetch_all_worker_data(
+        await self.worker_manager.fetch_all_worker_data(
             self.game_state.get_serialized_game_states_for_workers()
         )
 
@@ -93,4 +91,6 @@ class GameRunner:
 
     async def run(self):
         while True:
-            await self.update()
+            turn = asyncio.ensure_future(self.update())
+            await asyncio.sleep(TURN_TIME)
+            await turn

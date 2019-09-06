@@ -3,9 +3,8 @@ from __future__ import absolute_import
 import unittest
 from json import dumps
 
+from game_manager import TOKEN_MAX_LENGTH, GameManager, KubernetesGameManager
 from httmock import HTTMock
-
-from game_manager import GameManager
 
 
 class ConcreteGameManager(GameManager):
@@ -39,6 +38,7 @@ class RequestMock(object):
         return {
             str(i): {
                 "name": "Game {}".format(i),
+                "status": "r",
                 "settings": {"test": i, "test2": "Settings {}".format(i)},
             }
             for i in range(num_games)
@@ -96,3 +96,21 @@ class TestGameManager(unittest.TestCase):
             self.assertEqual(
                 self.game_manager.added_games[str(i)]["name"], "Game {}".format(i)
             )
+
+    def test_token_generation(self):
+        token = self.game_manager._generate_game_token()
+        self.assertTrue(isinstance(token, str))
+        self.assertLessEqual(len(token), TOKEN_MAX_LENGTH)
+
+    def test_make_rc_image_policy(self):
+        # _make_rc is not being called as an instance method here so "self" has to explicitly be passed through
+        game_rc = KubernetesGameManager._make_rc(None, {}, 1, True)
+        self.assertEqual(
+            game_rc.spec.template.spec.containers[0].image_pull_policy, "Never"
+        )
+
+        game_rc = KubernetesGameManager._make_rc(None, {}, 1, False)
+
+        self.assertEqual(
+            game_rc.spec.template.spec.containers[0].image_pull_policy, "Always"
+        )
