@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import React, { PureComponent } from 'react'
+import React, { Component } from 'react'
 import AceEditor from 'react-ace'
 import 'brace/theme/idle_fingers'
 import 'brace/mode/python'
@@ -10,6 +10,8 @@ import { withTheme } from '@material-ui/core/styles'
 import RunCodeButton from 'components/RunCodeButton'
 import { connect } from 'react-redux'
 import { actions as editorActions } from 'features/Editor'
+// import MonacoEditor from 'react-monaco-editor'
+import Editor from '@monaco-editor/react'
 
 export const IDEEditorLayout = styled.div`
   position: relative;
@@ -25,26 +27,62 @@ export const PositionedRunCodeButton = styled(RunCodeButton)`
   }
 `
 
-export class IDEEditor extends PureComponent {
-  isCodeOnServerDifferent () {
+export class IDEEditor extends Component {
+  constructor(props) {
+    super(props)
+    this.state = {
+      code: '// type your code...'
+    }
+  }
+
+  editorDidMount(editor, monaco) {
+    console.log('editorDidMount', editor);
+    editor.focus();
+  }
+
+  isCodeOnServerDifferent() {
     return this.props.code !== this.props.codeOnServer
   }
 
-  options () {
+  options() {
     return {
       enableBasicAutocompletion: true,
       enableLiveAutocompletion: true,
       enableSnippets: true,
       showLineNumbers: true,
       tabSize: 4,
-      fontFamily: this.props.theme.additionalVariables.typography.code.fontFamily
+      fontFamily: this.props.theme.additionalVariables.typography.code
+        .fontFamily
     }
   }
 
-  render () {
+  render() {
+    const code = this.state.code
+    // console.log(this.props.code)
     return (
       <IDEEditorLayout>
-        <AceEditor
+        <Editor
+          language="python"
+          // height="100%"
+          // width="100%"
+          theme="dark"
+          value={this.props.code}
+          options={{
+            // fixedOverflowWidgets: true,
+            // selectOnLineNumbers: true,
+            codeLens: false,
+            // cursorBlinking: "solid",
+            // disableLayerHinting: true,
+            showLineNumbers: true,
+            contextmenu: false,
+            minimap: {
+              enabled: false
+            },
+            // automaticLayout: true
+          }}
+          onChange={this.props.editorChanged}
+        />
+        {/* <AceEditor
           mode='python'
           theme='idle_fingers'
           name='ace_editor'
@@ -57,13 +95,14 @@ export class IDEEditor extends PureComponent {
           value={this.props.code}
           width='100%'
           height='100%'
-          setOptions={this.options()} />
+          setOptions={this.options()} /> */}
         <PositionedRunCodeButton
           runCodeButtonStatus={this.props.runCodeButtonStatus}
           isCodeOnServerDifferent={this.isCodeOnServerDifferent()}
-          aria-label='Run Code'
-          id='post-code-button'
-          whenClicked={this.props.postCode} />
+          aria-label="Run Code"
+          id="post-code-button"
+          whenClicked={this.props.postCode}
+        />
       </IDEEditorLayout>
     )
   }
@@ -91,4 +130,7 @@ const mapDispatchToProps = {
   postCode: editorActions.postCodeRequest
 }
 
-export default connect(mapStateToProps, mapDispatchToProps)(withTheme(IDEEditor))
+export default connect(
+  mapStateToProps,
+  mapDispatchToProps
+)(withTheme(IDEEditor))

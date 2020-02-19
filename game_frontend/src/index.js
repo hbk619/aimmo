@@ -21,6 +21,7 @@ WebFont.load({
   }
 })
 
+
 ReactGA.initialize('UA-49883146-1', {
   debug: false,
   testMode: process.env.NODE_ENV === 'test'
@@ -52,7 +53,7 @@ const initialState = {
   }
 }
 
-function getGameIDFromURL () {
+function getGameIDFromURL() {
   const url = window.location.href
   const gameIDFinder = /\/play\/([0-9]+)/
   return gameIDFinder.exec(url)[1]

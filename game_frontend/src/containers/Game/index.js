@@ -18,12 +18,14 @@ export class Game extends Component {
     showSnackbar: this.props.showSnackbar
   }
 
-  componentWillReceiveProps (nextProps) {
-    if (nextProps.showSnackbar !== this.props.showSnackbar) {
-      this.setState({
+  static getDerivedStateFromProps(nextProps, state) {
+    // if (nextProps.showSnackbar !== this.props.showSnackbar) {
+      return {
+        ...state,
         showSnackbar: nextProps.showSnackbar
-      })
-    }
+      }
+    // }
+    // return state
   }
 
   handleClose = () => {
@@ -31,7 +33,7 @@ export class Game extends Component {
     this.props.snackbarShown()
   }
 
-  render () {
+  render() {
     return (
       <Fragment>
         <GameView
@@ -44,10 +46,10 @@ export class Game extends Component {
           centerCameraOnUserAvatar={this.props.centerCameraOnUserAvatar}
         />
         <Snackbar
-          type='success'
+          type="success"
           anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
           open={this.state.showSnackbar}
-          direction='up'
+          direction="up"
           onClose={this.handleClose}
           message={this.props.snackbarMessage}
         />
