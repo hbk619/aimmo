@@ -21,7 +21,7 @@ LOGGER = getLogger(__name__)
 
 
 class Action(object):
-    def __init__(self, avatar):
+    def __init__(self, avatar: "AvatarWrapper"):
         self._avatar: "AvatarWrapper" = avatar
         try:
             self._target_location = self._avatar.location + self.direction

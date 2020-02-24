@@ -10,8 +10,10 @@ import { withTheme } from '@material-ui/core/styles'
 import RunCodeButton from 'components/RunCodeButton'
 import { connect } from 'react-redux'
 import { actions as editorActions } from 'features/Editor'
-// import MonacoEditor from 'react-monaco-editor'
 import Editor from '@monaco-editor/react'
+import doEditorStuff from './monacoCode'
+
+doEditorStuff()
 
 export const IDEEditorLayout = styled.div`
   position: relative;
@@ -35,9 +37,8 @@ export class IDEEditor extends Component {
     }
   }
 
-  editorDidMount(editor, monaco) {
-    console.log('editorDidMount', editor);
-    editor.focus();
+  editorDidMount() {
+    this.props.getCode()
   }
 
   isCodeOnServerDifferent() {
@@ -63,24 +64,18 @@ export class IDEEditor extends Component {
       <IDEEditorLayout>
         <Editor
           language="python"
-          // height="100%"
-          // width="100%"
           theme="dark"
           value={this.props.code}
           options={{
-            // fixedOverflowWidgets: true,
-            // selectOnLineNumbers: true,
             codeLens: false,
-            // cursorBlinking: "solid",
-            // disableLayerHinting: true,
             showLineNumbers: true,
             contextmenu: false,
             minimap: {
               enabled: false
             },
-            // automaticLayout: true
           }}
           onChange={this.props.editorChanged}
+          editorDidMount={this.props.getCode}
         />
         {/* <AceEditor
           mode='python'

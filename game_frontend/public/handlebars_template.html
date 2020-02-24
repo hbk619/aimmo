@@ -35,7 +35,12 @@
 </head>
 
 <body>
-<!-- Google Tag Manager (noscript) -->
+  <div id="root"></div>
+</body>
+{% comment %} <script src="{% static 'dts-gen/browser-bundle.js' %}"></script> {% endcomment %}
+<script src="{% static 'skulpt/skulpt.min.js' %}"></script>
+<script src="{% static 'skulpt/skulpt-stdlib.js' %}"></script>
+<script src="{% static '{{ reactUrl }}' %}"></script><!-- Google Tag Manager (noscript) -->
   {% if environment == "production" %}
   <!-- Production Environment -->
     <noscript>
@@ -52,6 +57,3 @@
     </noscript>
   {% endif %}
 <!-- End Google Tag Manager (noscript) -->
-  <div id="root"></div>
-</body>
-<script src="{% static '{{ reactUrl }}' %}"></script>
