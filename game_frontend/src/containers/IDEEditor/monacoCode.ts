@@ -1,49 +1,22 @@
 import { monaco } from '@monaco-editor/react'
-import { Position, languages } from 'monaco-editor'
+import { IRange, Position, languages } from 'monaco-editor'
 
 const LANGUAGE_ID = 'python'
 
 const CURSOR_MARKER = '__CURSOR__'
 
-const directions = [
-  {
-    label: 'NORTH',
-    kind: languages.CompletionItemKind.EnumMember,
-    insertText: 'NORTH',
-    detail: 'Go north'
-  },
-  {
-    label: 'SOUTH',
-    kind: languages.CompletionItemKind.EnumMember,
-    insertText: 'SOUTH',
-    detail: 'Go south'
-  },
-  {
-    label: 'WEST',
-    kind: languages.CompletionItemKind.EnumMember,
-    insertText: 'WEST',
-    detail: 'Go west'
-  },
-  {
-    label: 'EAST',
-    kind: languages.CompletionItemKind.EnumMember,
-    insertText: 'EAST',
-    detail: 'Go east'
-  }
-]
+let directions = []
 
-function generateDirectionsWithRange(range: Monaco): languages.CompletionItem[] {
+function generateDirectionsWithRange(
+  range: IRange
+): languages.CompletionItem[] {
   return directions.map(direction => ({
     ...direction,
     range
   }))
 }
 
-function insertCursorMarkerAtPosition(
-  lines: string[],
-  position: Position
-) {
-  position
+function insertCursorMarkerAtPosition(lines: string[], position: Position) {
   lines[position.lineNumber - 1] =
     lines[position.lineNumber - 1].slice(0, position.column - 1) +
     CURSOR_MARKER +
@@ -93,45 +66,85 @@ function instanceOfCall(object: any): object is Call {
   )
 }
 
-function findNodeWithCursorfromExpr(expr: Expr, completionItems: languages.CompletionItemKind[]): boolean {
-  if (instanceOfAttribute(expr.value)) {
-    if (expr.value.attr.v.includes(CURSOR_MARKER)) {
-      console.log('found in attr attr')
-      console.log(expr.value)
-      return true
+function generateCompletionItemsFromAttribute(attr: Attribute, position: Position): languages.CompletionItem[] {
+  if (attr.attr.v.includes(CURSOR_MARKER)) {
+    if (attr.value.id.v === 'direction') {
+      const range: IRange = {
+        startLineNumber: attr.value.lineno,
+        endLineNumber: attr.value.lineno,
+        startColumn: attr.value.col_offset + position.column - 1,
+        endColumn: attr.value.col_offset + position.column
+      }
+      return generateDirectionsWithRange(range)
     }
+  }
+  return []
+}
+
+function findNodeWithCursorfromExpr(expr: Expr, position: Position): languages.CompletionItem[] {
+  if (instanceOfAttribute(expr.value)) {
+    return generateCompletionItemsFromAttribute(expr.value, position)
   } else if (instanceOfName(expr.value)) {
     if (expr.value.id.v.includes(CURSOR_MARKER)) {
       console.log('found in name from expr')
-      return true
-    } 
+      return []
+    }
   }
-  return false
+  return []
 }
 
-function findNodeWithCursorFromAST(ast: Module) {
+function findNodeWithCursorFromAST(ast: Module, position: Position): languages.CompletionItem[] {
   const mainFunctionBody = ast.body[0].body
   for (const line of mainFunctionBody) {
     if (instanceOfReturn(line)) {
       console.log('return')
       if (instanceOfCall(line.value)) {
-        console.log("call")
+        console.log('    call')
+        return generateCompletionItemsFromAttribute(line.value.args[0], position)
       }
     } else if (instanceOfAttribute(line)) {
       console.log('attribute')
     } else if (instanceOfExpr(line)) {
       console.log('expr')
-      findNodeWithCursorfromExpr(line)
+      return findNodeWithCursorfromExpr(line, position)
     } else {
       console.log(line)
     }
   }
+  return []
 }
 
 export default function doEditorStuff() {
   monaco
     .init()
     .then(monaco => {
+      directions = [
+        {
+          label: 'NORTH',
+          kind: monaco.languages.CompletionItemKind.EnumMember,
+          insertText: 'NORTH',
+          detail: 'Go north'
+        },
+        {
+          label: 'SOUTH',
+          kind: monaco.languages.CompletionItemKind.EnumMember,
+          insertText: 'SOUTH',
+          detail: 'Go south'
+        },
+        {
+          label: 'WEST',
+          kind: monaco.languages.CompletionItemKind.EnumMember,
+          insertText: 'WEST',
+          detail: 'Go west'
+        },
+        {
+          label: 'EAST',
+          kind: monaco.languages.CompletionItemKind.EnumMember,
+          insertText: 'EAST',
+          detail: 'Go east'
+        }
+      ]
+
       monaco.languages.register({
         id: LANGUAGE_ID,
         extensions: ['.py'],
@@ -149,60 +162,64 @@ export default function doEditorStuff() {
           context,
           token
         ): languages.CompletionList {
+          console.log(position)
           let lines = model.getLinesContent()
           insertCursorMarkerAtPosition(lines, position)
           const filename = '__main__'
           let parse = Sk.parse(filename, lines.join('\n'))
           let ast = Sk.astFromParse(parse.cst, filename, parse.flags)
-          findNodeWithCursorFromAST(ast)
-          return {
-            suggestions: [
-              {
-                label: 'direction',
-                kind: monaco.languages.CompletionItemKind.Enum,
-                insertText: 'direction',
-                range: {
-                  startLineNumber: position.lineNumber,
-                  endLineNumber: position.lineNumber,
-                  startColumn: position.column - 1,
-                  endColumn: position.column
-                },
-                detail: 'You can use direction.<YOUR_DIRECTION> to specify a direction'
+          var completionItems: languages.CompletionItem[] = [
+            {
+              label: 'direction',
+              kind: monaco.languages.CompletionItemKind.Enum,
+              insertText: 'direction',
+              range: {
+                startLineNumber: position.lineNumber,
+                endLineNumber: position.lineNumber,
+                startColumn: position.column - 1,
+                endColumn: position.column
               },
-              {
-                label: 'MoveAction',
-                kind: monaco.languages.CompletionItemKind.Class,
-                insertText: 'MoveAction',
-                range: {
-                  startLineNumber: position.lineNumber,
-                  endLineNumber: position.lineNumber,
-                  startColumn: position.column - 1,
-                  endColumn: position.column
-                },
-                detail: 'Move the avatar'
+              detail:
+                'You can use direction.<YOUR_DIRECTION> to specify a direction'
+            },
+            {
+              label: 'MoveAction',
+              kind: monaco.languages.CompletionItemKind.Class,
+              insertText: 'MoveAction',
+              range: {
+                startLineNumber: position.lineNumber,
+                endLineNumber: position.lineNumber,
+                startColumn: position.column - 1,
+                endColumn: position.column
               },
-              {
-                label: 'PickupAction',
-                kind: monaco.languages.CompletionItemKind.Class,
-                insertText: 'PickupAction',
-                range: {
-                  startLineNumber: position.lineNumber,
-                  endLineNumber: position.lineNumber,
-                  startColumn: position.column - 1,
-                  endColumn: position.column
-                },
-                detail: 'Pickup an artefact',
-                documentation: {
-                  value: `
+              detail: 'Move the avatar'
+            },
+            {
+              label: 'PickupAction',
+              kind: monaco.languages.CompletionItemKind.Class,
+              insertText: 'PickupAction',
+              range: {
+                startLineNumber: position.lineNumber,
+                endLineNumber: position.lineNumber,
+                startColumn: position.column - 1,
+                endColumn: position.column
+              },
+              detail: 'Pickup an artefact',
+              documentation: {
+                value: `
 If you are on a cell with an artefact, you can use a PickupAction to pick it up! It will be in your inventory in the next turn
 
 ### Example
 
 \`return PickupAction()\`
-                `
-                }
+              `
               }
-            ]
+            }
+          ]
+          completionItems.push(...findNodeWithCursorFromAST(ast, position))
+          console.log(completionItems)
+          return {
+            suggestions: completionItems
           }
         }
       })
