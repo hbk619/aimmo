@@ -1,5 +1,6 @@
 import actions from './actions'
 import { actions as analyticActions } from 'redux/features/Analytics'
+import { gameTypes } from 'redux/features/Game'
 import types from './types'
 import { Scheduler, of } from 'rxjs'
 import { map, mergeMap, catchError, debounceTime, mapTo } from 'rxjs/operators'
@@ -13,30 +14,33 @@ const getCodeEpic = (action$, state$, { api }) =>
     mergeMap(action =>
       api.get(`code/${state$.value.game.connectionParameters.game_id}/`).pipe(
         map(response => actions.getCodeReceived(response.code)),
-        catchError(error => of({
-          type: types.GET_CODE_FAILURE,
-          payload: error.xhr.response,
-          error: true
-        }))
+        catchError(error =>
+          of({
+            type: types.GET_CODE_FAILURE,
+            payload: error.xhr.response,
+            error: true
+          })
+        )
       )
     )
   )
 
 const postCodeEpic = (action$, state$, { api }) =>
-  action$
-    .pipe(
-      ofType(types.POST_CODE_REQUEST),
-      api.post(
-        `/kurono/api/code/${state$.value.game.connectionParameters.game_id}/`,
-        () => ({ code: state$.value.editor.code.code })
-      ),
-      map(response => actions.postCodeReceived()),
-      catchError(error => of({
+  action$.pipe(
+    ofType(types.POST_CODE_REQUEST),
+    api.post(
+      `/kurono/api/code/${state$.value.game.connectionParameters.game_id}/`,
+      () => ({ code: state$.value.editor.code.code })
+    ),
+    map(response => actions.postCodeReceived()),
+    catchError(error =>
+      of({
         type: types.POST_CODE_FAILURE,
         payload: error.xhr.response,
         error: true
-      }))
+      })
     )
+  )
 
 const postCodeAnalyticsEpic = action$ =>
   action$.pipe(
@@ -50,17 +54,26 @@ const resetCodeAnalyticsEpic = action$ =>
     mapTo(analyticActions.sendAnalyticsEvent('Kurono', 'Click', 'Reset Code'))
   )
 
-const changeCodeEpic = (action$, state$, dependencies, scheduler = backgroundScheduler) =>
+const changeCodeEpic = (
+  action$,
+  state$,
+  dependencies,
+  scheduler = backgroundScheduler
+) =>
   action$.pipe(
     ofType(types.KEY_PRESSED),
     debounceTime(300, scheduler),
     map(action => actions.changeCode(action.payload.code))
   )
 
+const nextActionEpic = (action$, state$, { api: { socket } }) =>
+  action$.pipe(ofType(gameTypes.SOCKET_GAME_STATE_RECEIVED), socket.emitMove(), mapTo({type: "dummy"}))
+
 export default {
   getCodeEpic,
   postCodeEpic,
   changeCodeEpic,
   postCodeAnalyticsEpic,
-  resetCodeAnalyticsEpic
+  resetCodeAnalyticsEpic,
+  nextActionEpic
 }

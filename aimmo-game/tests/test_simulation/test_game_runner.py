@@ -6,6 +6,7 @@ import mock
 from simulation.avatar.avatar_manager import AvatarManager
 from simulation.game_runner import GameRunner
 from simulation.game_state import GameState
+from simulation.turn_collector import TurnCollector
 
 from .maps import InfiniteMap
 from .mock_communicator import MockCommunicator
@@ -44,6 +45,7 @@ def game_runner():
         game_state_generator=lambda avatar_manager: game_state,
         port="0000",
         communicator=MockCommunicator(),
+        turn_collector=TurnCollector(),
         worker_manager_class=MockWorkerManager,
     )
 

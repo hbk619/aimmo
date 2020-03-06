@@ -2,6 +2,7 @@ import asyncio
 import logging
 import threading
 from abc import ABCMeta, abstractmethod
+from typing import Dict
 
 from simulation.action import PRIORITIES
 from simulation.game_logic import EffectApplier, MapContext, MapExpander, PickupUpdater
@@ -106,11 +107,13 @@ class SequentialSimulationRunner(SimulationRunner):
         """
         Get and apply each avatar's action in turn.
         """
-        avatars = self.game_state.avatar_manager.active_avatars
 
+        LOGGER.debug(player_id_to_serialized_actions)
+        avatars = self.game_state.avatar_manager.active_avatars
+        LOGGER.debug(avatars)
         for avatar in avatars:
             await self._run_turn_for_avatar(
-                avatar, player_id_to_serialized_actions[avatar.player_id]
+                avatar, player_id_to_serialized_actions.get(avatar.player_id, {"action_type": "wait"})
             )
             location_to_clear = avatar.action.target_location
             avatar.action.process(self.game_state.world_map)
@@ -127,10 +130,10 @@ class ConcurrentSimulationRunner(SimulationRunner):
         Concurrently get the intended actions from all avatars and register
         them on the world map. Then apply actions in order of priority.
         """
-
+        LOGGER.info(player_id_to_serialized_actions)
         avatars = self.game_state.avatar_manager.active_avatars
         args = [
-            (avatar, player_id_to_serialized_actions[avatar.player_id])
+            (avatar, player_id_to_serialized_actions.get(avatar.player_id, {"action_type": "wait"}))
             for avatar in avatars
         ]
         await self.async_map(self._run_turn_for_avatar, args)

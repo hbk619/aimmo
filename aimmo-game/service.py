@@ -18,6 +18,7 @@ from simulation import map_generator
 from simulation.django_communicator import DjangoCommunicator
 from simulation.game_runner import GameRunner
 from simulation.log_collector import LogCollector
+from simulation.turn_collector import TurnCollector
 
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -223,18 +224,22 @@ class GameAPI(object):
 def create_runner(port):
     settings = json.loads(os.environ["settings"])
     generator = getattr(map_generator, settings["GENERATOR"])(settings)
+    turn_collector = TurnCollector(socketio_server, app)
     return GameRunner(
         game_state_generator=generator.get_game_state,
         communicator=communicator,
         port=port,
+        turn_collector=turn_collector,
     )
 
 
 def run_game(port):
     game_runner = create_runner(port)
 
+
     game_api = GameAPI(
-        game_state=game_runner.game_state, worker_manager=game_runner.worker_manager
+        game_state=game_runner.game_state,
+        worker_manager=game_runner.worker_manager,
     )
     game_runner.set_end_turn_callback(game_api.send_updates_to_all)
     asyncio.ensure_future(game_runner.run())

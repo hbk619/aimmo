@@ -2,10 +2,15 @@ import asyncio
 import logging
 
 from metrics import GAME_TURN_TIME
+from typing import TYPE_CHECKING
 from simulation.avatar.avatar_manager import AvatarManager
 from simulation.django_communicator import DjangoCommunicator
 from simulation.simulation_runner import ConcurrentSimulationRunner
 from simulation.worker_manager import WorkerManager
+
+if TYPE_CHECKING:
+    from simulation.turn_collector import TurnCollector, CollectedTurnActions
+    from simulation.game_state import GameState
 
 LOGGER = logging.getLogger(__name__)
 
@@ -18,17 +23,22 @@ class GameRunner:
         game_state_generator,
         communicator: DjangoCommunicator,
         port,
+        turn_collector: "TurnCollector",
         worker_manager_class=WorkerManager,
     ):
         super(GameRunner, self).__init__()
 
         self.worker_manager = worker_manager_class(port=port)
-        self.game_state = game_state_generator(AvatarManager())
+        self.game_state: "GameState" = game_state_generator(AvatarManager())
         self.communicator = communicator
         self.simulation_runner = ConcurrentSimulationRunner(
             communicator=self.communicator, game_state=self.game_state
         )
+        self.turn_collector = turn_collector
         self._end_turn_callback = lambda: None
+
+
+        self.turn_collector.new_turn(-1)
 
     def set_end_turn_callback(self, callback_method):
         self._end_turn_callback = callback_method
@@ -71,7 +81,12 @@ class GameRunner:
             self.game_state.get_serialized_game_states_for_workers()
         )
 
-    async def update_simulation(self, player_id_to_serialized_actions):
+    async def update_simulation(self, collected_turn_actions: "CollectedTurnActions"):
+    # async def update_simulation(self, player_id_to_serialized_actions):
+        # LOGGER.debug(player_id_to_serialized_actions)
+        player_id_to_serialized_actions = collected_turn_actions.player_id_to_actions
+        LOGGER.info(f"turn number in CollectedTurnActions: {collected_turn_actions.turn_number}")
+        LOGGER.info(f"dict in CollectedTurnActions: {player_id_to_serialized_actions}")
         await self.simulation_runner.run_single_turn(player_id_to_serialized_actions)
         await self._end_turn_callback()
 
@@ -79,11 +94,12 @@ class GameRunner:
         with GAME_TURN_TIME():
             await self.update_workers()
             await self.update_simulation(
-                self.worker_manager.get_player_id_to_serialized_actions()
+                self.turn_collector.collected_turn
             )
             self.worker_manager.clear_logs()
             self.game_state.avatar_manager.clear_all_avatar_logs()
             self.game_state.turn_count += 1
+            self.turn_collector.new_turn(self.game_state.turn_count)
 
     async def run(self):
         while True:

@@ -50,7 +50,13 @@ def build_docker_images(minikube=None, build_target=None):
         path = os.path.join(BASE_DIR, dir)
         tag = "ocadotechnology/%s:test" % dir
         print("Building %s..." % tag)
-        client.images.build(path=path, tag=tag, encoding="gzip", target=build_target)
+        try:
+            client.images.build(path=path, tag=tag, encoding="gzip", target=build_target)
+        except docker.errors.BuildError as e:
+            print("got here")
+            for log in e.build_log:
+                print(log)
+            raise e
 
 
 def delete_containers():

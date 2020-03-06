@@ -1,4 +1,4 @@
-FROM python:3.6.10-buster as builder
+FROM python:3.7.5-buster as builder
 LABEL Author='codeforlife@ocado.com'
 
 RUN pip install pipenv

@@ -18,3 +18,7 @@ python_version = "3.7.5"
 pydocstyle = "*"
 "autopep8" = "*"
 pytest = "*"
+black = "*"
+
+[pipenv]
+allow_prereleases = true
