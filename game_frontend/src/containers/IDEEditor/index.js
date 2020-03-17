@@ -30,22 +30,22 @@ export const PositionedRunCodeButton = styled(RunCodeButton)`
 `
 
 export class IDEEditor extends Component {
-  constructor(props) {
+  constructor (props) {
     super(props)
     this.state = {
       code: '// type your code...'
     }
   }
 
-  editorDidMount() {
+  editorDidMount () {
     this.props.getCode()
   }
 
-  isCodeOnServerDifferent() {
+  isCodeOnServerDifferent () {
     return this.props.code !== this.props.codeOnServer
   }
 
-  options() {
+  options () {
     return {
       enableBasicAutocompletion: true,
       enableLiveAutocompletion: true,
@@ -57,14 +57,14 @@ export class IDEEditor extends Component {
     }
   }
 
-  render() {
+  render () {
     const code = this.state.code
     // console.log(this.props.code)
     return (
       <IDEEditorLayout>
         <Editor
-          language="python"
-          theme="dark"
+          language='python'
+          theme='dark'
           value={this.props.code}
           options={{
             codeLens: false,
@@ -72,7 +72,7 @@ export class IDEEditor extends Component {
             contextmenu: false,
             minimap: {
               enabled: false
-            },
+            }
           }}
           onChange={this.props.editorChanged}
           editorDidMount={this.props.getCode}
@@ -90,12 +90,13 @@ export class IDEEditor extends Component {
           value={this.props.code}
           width='100%'
           height='100%'
-          setOptions={this.options()} /> */}
+          setOptions={this.options()}
+        /> */}
         <PositionedRunCodeButton
           runCodeButtonStatus={this.props.runCodeButtonStatus}
           isCodeOnServerDifferent={this.isCodeOnServerDifferent()}
-          aria-label="Run Code"
-          id="post-code-button"
+          aria-label='Run Code'
+          id='post-code-button'
           whenClicked={this.props.postCode}
         />
       </IDEEditorLayout>
