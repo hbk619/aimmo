@@ -11,9 +11,9 @@ import RunCodeButton from 'components/RunCodeButton'
 import { connect } from 'react-redux'
 import { actions as editorActions } from 'features/Editor'
 import Editor from '@monaco-editor/react'
-import doEditorStuff from './monacoCode'
+// import doEditorStuff from './monacoCode'
 
-doEditorStuff()
+// doEditorStuff()
 
 export const IDEEditorLayout = styled.div`
   position: relative;
@@ -37,8 +37,15 @@ export class IDEEditor extends Component {
     }
   }
 
-  editorDidMount () {
+  editorDidMount (editor) {
+    console.log('got here')
+    this.editor = editor
+    console.log(editor)
     this.props.getCode()
+    editor.onDidChangeModelContent(ev => {
+      console.log(this.editor.getValue())
+      this.props.editorChanged(this.editor.getValue())
+    })
   }
 
   isCodeOnServerDifferent () {
@@ -74,8 +81,9 @@ export class IDEEditor extends Component {
               enabled: false
             }
           }}
-          onChange={this.props.editorChanged}
-          editorDidMount={this.props.getCode}
+          forwardRef={ref => (this.editorRef = ref)}
+          // onChange={this.props.editorChanged}
+          editorDidMount={(_, editor) => this.editorDidMount(editor)}
         />
         {/* <AceEditor
           mode='python'
@@ -94,10 +102,10 @@ export class IDEEditor extends Component {
         /> */}
         <PositionedRunCodeButton
           runCodeButtonStatus={this.props.runCodeButtonStatus}
-          isCodeOnServerDifferent={this.isCodeOnServerDifferent()}
+          isCodeOnServerDifferent
           aria-label='Run Code'
           id='post-code-button'
-          whenClicked={this.props.postCode}
+          whenClicked={() => this.props.postCode(this.state.code)}
         />
       </IDEEditorLayout>
     )

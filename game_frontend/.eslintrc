@@ -13,6 +13,9 @@
   "env": {
     "browser": true
   },
+  "globals": {
+    "Sk": true
+  },
   "rules": {
     "react/jsx-handler-names": "off",
     "react/jsx-pascal-case": [

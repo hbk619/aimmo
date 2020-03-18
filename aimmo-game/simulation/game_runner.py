@@ -37,7 +37,6 @@ class GameRunner:
         self.turn_collector = turn_collector
         self._end_turn_callback = lambda: None
 
-
         self.turn_collector.new_turn(-1)
 
     def set_end_turn_callback(self, callback_method):
@@ -45,20 +44,22 @@ class GameRunner:
 
     def get_users_to_add(self, game_metadata):
         def player_is_new(_player):
-            return _player["id"] not in self.worker_manager.player_id_to_worker.keys()
+            return (
+                _player["id"] not in self.game_state.avatar_manager.avatars_by_id.keys()
+            )
 
         return [
             player["id"] for player in game_metadata["users"] if player_is_new(player)
         ]
 
     def get_users_to_delete(self, game_metadata):
-        def player_in_worker_manager_but_not_metadata(pid):
+        def player_in_avatar_manager_but_not_metadata(pid):
             return pid not in [player["id"] for player in game_metadata["users"]]
 
         return [
             player_id
-            for player_id in self.worker_manager.player_id_to_worker.keys()
-            if player_in_worker_manager_but_not_metadata(player_id)
+            for player_id in self.game_state.avatar_manager.avatars_by_id.keys()
+            if player_in_avatar_manager_but_not_metadata(player_id)
         ]
 
     def update_main_user(self, game_metadata):
@@ -82,20 +83,27 @@ class GameRunner:
         )
 
     async def update_simulation(self, collected_turn_actions: "CollectedTurnActions"):
-    # async def update_simulation(self, player_id_to_serialized_actions):
+        # async def update_simulation(self, player_id_to_serialized_actions):
         # LOGGER.debug(player_id_to_serialized_actions)
+        game_metadata = await self.communicator.get_game_metadata()
+        avatars_to_add = self.get_users_to_add(game_metadata)
+        avatars_to_delete = self.get_users_to_delete(game_metadata)
+        self.simulation_runner.add_avatars(avatars_to_add)
+        self.simulation_runner.delete_avatars(avatars_to_delete)
+        self.update_main_user(game_metadata)
+
         player_id_to_serialized_actions = collected_turn_actions.player_id_to_actions
-        LOGGER.info(f"turn number in CollectedTurnActions: {collected_turn_actions.turn_number}")
+        LOGGER.info(
+            f"turn number in CollectedTurnActions: {collected_turn_actions.turn_number}"
+        )
         LOGGER.info(f"dict in CollectedTurnActions: {player_id_to_serialized_actions}")
         await self.simulation_runner.run_single_turn(player_id_to_serialized_actions)
         await self._end_turn_callback()
 
     async def update(self):
         with GAME_TURN_TIME():
-            await self.update_workers()
-            await self.update_simulation(
-                self.turn_collector.collected_turn
-            )
+            # await self.update_workers()
+            await self.update_simulation(self.turn_collector.collected_turns)
             self.worker_manager.clear_logs()
             self.game_state.avatar_manager.clear_all_avatar_logs()
             self.game_state.turn_count += 1

@@ -1,3 +1,4 @@
+/* eslint-disable camelcase */
 interface Module {
   body: FunctionDef[]
   __proto__: ASTProto
@@ -11,69 +12,69 @@ interface FunctionDef {
 }
 
 interface Assign {
-    targets: Name[]
-    value: Name | Expr | Num
-    lineno: number
-    col_offset: number
-    __proto__: ASTProto
+  targets: Name[]
+  value: Name | Expr | Num
+  lineno: number
+  col_offset: number
+  __proto__: ASTProto
 }
 
 interface ASTProto {
-    _astname: string
+  _astname: string
 }
 
 interface TypeProto {
-    tp$name: string
+  tp$name: string
 }
 
 interface Num {
-    value: int_
-    lineno: number
-    col_offset: number
-    __proto__: ASTProto
+  value: int_
+  lineno: number
+  col_offset: number
+  __proto__: ASTProto
 }
 
 interface int_ {
-    v: number
+  v: number
 }
 
 interface Expr {
-    value: Name | Attribute
-    __proto__: ASTProto
+  value: Name | Attribute
+  __proto__: ASTProto
 }
 
 interface Return {
-    value: Call | Name
-    lineno: number
-    col_offset: number
-    __proto__: ASTProto
+  value: Call | Name
+  lineno: number
+  col_offset: number
+  __proto__: ASTProto
 }
 
 interface Name {
-    id: str
-    lineno: number
-    col_offset: number
-    __proto__: ASTProto
+  id: str
+  lineno: number
+  col_offset: number
+  __proto__: ASTProto
 }
 
 interface str {
-    v: string
-    __proto__: TypeProto
+  v: string
+  __proto__: TypeProto
 }
 
 interface Call {
-    func: Name
-    args: Attribute[]
-    lineno: number
-    col_offset: number
+  func: Name
+  args: Attribute[]
+  lineno: number
+  col_offset: number
 }
 
 interface Attribute {
-    value: Name
-    attr: str
-    lineno: number
-    col_offset: number
-    __proto__: ASTProto
+  value: Name
+  attr: str
+  lineno: number
+  col_offset: number
+  __proto__: ASTProto
 }
 
 interface arguments_ {

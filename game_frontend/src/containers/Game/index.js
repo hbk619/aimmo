@@ -11,24 +11,24 @@ export class Game extends Component {
     showSnackbar: PropTypes.bool,
     snackbarMessage: PropTypes.string,
     snackbarShown: PropTypes.func,
-    gameState: PropTypes.func,
+    gameState: PropTypes.object,
     currentAvatarID: PropTypes.number,
-    gameLoaded: PropTypes.func,
+    gameLoaded: PropTypes.bool,
     centerCameraOnUserAvatar: PropTypes.func,
     cameraCenteredOnUserAvatar: PropTypes.bool,
-    mapPanned: PropTypes.bool
+    mapPanned: PropTypes.func
   }
 
   state = {
     showSnackbar: this.props.showSnackbar
   }
 
-  static getDerivedStateFromProps(nextProps, state) {
+  static getDerivedStateFromProps (nextProps, state) {
     // if (nextProps.showSnackbar !== this.props.showSnackbar) {
-      return {
-        ...state,
-        showSnackbar: nextProps.showSnackbar
-      }
+    return {
+      ...state,
+      showSnackbar: nextProps.showSnackbar
+    }
     // }
     // return state
   }
@@ -38,7 +38,7 @@ export class Game extends Component {
     this.props.snackbarShown()
   }
 
-  render() {
+  render () {
     return (
       <>
         <GameView
@@ -51,10 +51,10 @@ export class Game extends Component {
           centerCameraOnUserAvatar={this.props.centerCameraOnUserAvatar}
         />
         <Snackbar
-          type="success"
+          type='success'
           anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
           open={this.state.showSnackbar}
-          direction="up"
+          direction='up'
           onClose={this.handleClose}
           message={this.props.snackbarMessage}
         />

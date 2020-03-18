@@ -1,6 +1,5 @@
 import { combineReducers } from 'redux'
 import types from './types'
-import { gameTypes } from 'features/Game'
 import { RunCodeButtonStatus } from 'components/RunCodeButton'
 import { DEFAULT_CODE } from '../constants'
 
@@ -39,20 +38,10 @@ const runCodeButtonReducer = (state = {}, action) => {
         ...state,
         status: RunCodeButtonStatus.updating
       }
-    case gameTypes.SOCKET_FEEDBACK_AVATAR_UPDATED_SUCCESS:
+    case types.POST_CODE_SUCCESS:
       return {
         ...state,
         status: RunCodeButtonStatus.done
-      }
-    case gameTypes.SOCKET_FEEDBACK_AVATAR_UPDATED_TIMEOUT:
-      return {
-        ...state,
-        status: RunCodeButtonStatus.error
-      }
-    case gameTypes.SNACKBAR_FOR_AVATAR_FEEDBACK_SHOWN:
-      return {
-        ...state,
-        status: RunCodeButtonStatus.normal
       }
     default:
       return state

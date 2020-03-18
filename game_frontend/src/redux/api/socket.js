@@ -26,6 +26,8 @@ const connectToGame = () =>
 const listenFor = (eventName, socket, action) =>
   fromEvent(socket, eventName).pipe(map(event => action(event)))
 
+const emitAction = nextAction => socketIO.emit('action', nextAction)
+
 const emitMove = () =>
   tap(() =>
     socketIO.emit('action', {
@@ -54,4 +56,4 @@ const startListeners = () =>
     )
   )
 
-export default { connectToGame, startListeners, emitMove }
+export default { connectToGame, startListeners, emitMove, emitAction }

@@ -1,3 +1,4 @@
+/* eslint-disable no-proto */
 import { monaco } from '@monaco-editor/react'
 import { IRange, Position, languages } from 'monaco-editor'
 
@@ -7,7 +8,7 @@ const CURSOR_MARKER = '__CURSOR__'
 
 let directions = []
 
-function generateDirectionsWithRange(
+function generateDirectionsWithRange (
   range: IRange
 ): languages.CompletionItem[] {
   return directions.map(direction => ({
@@ -16,7 +17,7 @@ function generateDirectionsWithRange(
   }))
 }
 
-function insertCursorMarkerAtPosition(lines: string[], position: Position) {
+function insertCursorMarkerAtPosition (lines: string[], position: Position) {
   lines[position.lineNumber - 1] =
     lines[position.lineNumber - 1].slice(0, position.column - 1) +
     CURSOR_MARKER +
@@ -26,7 +27,7 @@ function insertCursorMarkerAtPosition(lines: string[], position: Position) {
     )
 }
 
-function instanceOfReturn(object: any): object is Return {
+function instanceOfReturn (object: any): object is Return {
   return (
     '__proto__' in object &&
     '_astname' in object.__proto__ &&
@@ -34,7 +35,7 @@ function instanceOfReturn(object: any): object is Return {
   )
 }
 
-function instanceOfAttribute(object: any): object is Attribute {
+function instanceOfAttribute (object: any): object is Attribute {
   return (
     '__proto__' in object &&
     '_astname' in object.__proto__ &&
@@ -42,7 +43,7 @@ function instanceOfAttribute(object: any): object is Attribute {
   )
 }
 
-function instanceOfName(object: any): object is Name {
+function instanceOfName (object: any): object is Name {
   return (
     '__proto__' in object &&
     '_astname' in object.__proto__ &&
@@ -50,7 +51,7 @@ function instanceOfName(object: any): object is Name {
   )
 }
 
-function instanceOfExpr(object: any): object is Expr {
+function instanceOfExpr (object: any): object is Expr {
   return (
     '__proto__' in object &&
     '_astname' in object.__proto__ &&
@@ -58,7 +59,7 @@ function instanceOfExpr(object: any): object is Expr {
   )
 }
 
-function instanceOfCall(object: any): object is Call {
+function instanceOfCall (object: any): object is Call {
   return (
     '__proto__' in object &&
     '_astname' in object.__proto__ &&
@@ -66,7 +67,10 @@ function instanceOfCall(object: any): object is Call {
   )
 }
 
-function generateCompletionItemsFromAttribute(attr: Attribute, position: Position): languages.CompletionItem[] {
+function generateCompletionItemsFromAttribute (
+  attr: Attribute,
+  position: Position
+): languages.CompletionItem[] {
   if (attr.attr.v.includes(CURSOR_MARKER)) {
     if (attr.value.id.v === 'direction') {
       const range: IRange = {
@@ -81,7 +85,10 @@ function generateCompletionItemsFromAttribute(attr: Attribute, position: Positio
   return []
 }
 
-function findNodeWithCursorfromExpr(expr: Expr, position: Position): languages.CompletionItem[] {
+function findNodeWithCursorfromExpr (
+  expr: Expr,
+  position: Position
+): languages.CompletionItem[] {
   if (instanceOfAttribute(expr.value)) {
     return generateCompletionItemsFromAttribute(expr.value, position)
   } else if (instanceOfName(expr.value)) {
@@ -93,14 +100,20 @@ function findNodeWithCursorfromExpr(expr: Expr, position: Position): languages.C
   return []
 }
 
-function findNodeWithCursorFromAST(ast: Module, position: Position): languages.CompletionItem[] {
+function findNodeWithCursorFromAST (
+  ast: Module,
+  position: Position
+): languages.CompletionItem[] {
   const mainFunctionBody = ast.body[0].body
   for (const line of mainFunctionBody) {
     if (instanceOfReturn(line)) {
       console.log('return')
       if (instanceOfCall(line.value)) {
         console.log('    call')
-        return generateCompletionItemsFromAttribute(line.value.args[0], position)
+        return generateCompletionItemsFromAttribute(
+          line.value.args[0],
+          position
+        )
       }
     } else if (instanceOfAttribute(line)) {
       console.log('attribute')
@@ -114,7 +127,7 @@ function findNodeWithCursorFromAST(ast: Module, position: Position): languages.C
   return []
 }
 
-export default function doEditorStuff() {
+export default function doEditorStuff () {
   monaco
     .init()
     .then(monaco => {
@@ -156,7 +169,7 @@ export default function doEditorStuff() {
 
       monaco.languages.registerCompletionItemProvider(LANGUAGE_ID, {
         triggerCharacters: ['.'],
-        provideCompletionItems(
+        provideCompletionItems (
           model,
           position,
           context,
