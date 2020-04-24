@@ -1,29 +1,19 @@
 /* eslint-disable no-console */
 
 let skulptInitialized = false
+let avatarCode = `
+from base import *
 
-function builtinRead (x) {
-  if (Sk.builtinFiles === undefined || Sk.builtinFiles.files[x] === undefined) {
-    console.error(`File not found: ${x}`)
-    throw new Error(`File not found: ${x}`)
-  }
-  return Sk.builtinFiles['files'][x]
-}
+def next_turn(world_state, avatar_state):
+    return MoveAction(direction.NORTH)
+`
 
-let logCollector: object
-
-function addToLogCollector (log: string) {
-  // logCollector.push(log)
-  const jsonString = log.replace(/'/g, '"')
-  logCollector = JSON.parse(jsonString)
-}
-
-export function runSkulpt (userCode) {
-  console.log(userCode)
-  if (!skulptInitialized) {
-    return
-  }
-  const code = `
+function builtinRead (x: string) {
+  // console.log(`I am here for ${x}`)
+  if (x === './avatar.py') {
+    return avatarCode
+  } else if (x === './base.py') {
+    return `
 class Direction(object):
     def __init__(self, x, y):
         self.x = x
@@ -121,59 +111,66 @@ class Location(object):
   def __hash__(self):
       return hash((self.x, self.y))
   `
+  }
+  if (Sk.builtinFiles === undefined || Sk.builtinFiles.files[x] === undefined) {
+    // console.error(`File not found: ${x}`)
+    throw new Error(`File not found: ${x}`)
+  }
+  return Sk.builtinFiles['files'][x]
+}
 
-  //   const avatarCode = `
-  // def next_turn(world_state, avatar_state):
-  //     return MoveAction(direction.SOUTH)
-  // `
+let logCollector: object
 
+function addToLogCollector (log: string) {
+  console.log(log)
+  const jsonString = log.replace(/'/g, '"')
+  logCollector = JSON.parse(jsonString)
+}
+
+export function runSkulpt (userCode) {
+  if (!skulptInitialized) {
+    return
+  }
+  avatarCode = `from base import *
+
+${userCode}
+`
   const runTurn = `
-next_action = next_turn(None, None)
+import avatar
+
+next_action = avatar.next_turn(None, None)
 
 print(next_action.serialise())
 `
-  // Sk.importBuiltinWithBody('sys', false, '', false)
-  // const stuff = Sk.compile(code, 'location.py', 'exec', true)
-  // Sk.importModuleInternal_(
-  //   'location',
-  //   false,
-  //   undefined,
-  //   code,
-  //   undefined,
-  //   false,
-  //   false
-  // )
 
-  // Sk.importModuleInternal_(
-  //   'avatar',
-  //   false,
-  //   undefined,
-  //   userCode,
-  //   undefined,
-  //   false,
-  //   false
-  // )
-
-  Sk.importMainWithBody(
-    'main',
-    false,
-    `${code}\n${userCode}\n${runTurn}`,
-    false
-  )
+  try {
+    Sk.importMainWithBody('runTurn', false, `${runTurn}`, false)
+  } catch (error) {
+    console.log(error)
+  }
+  console.log('finished runTurn')
 
   // Sk.importMainWithBody('location', true, code, false)
-  console.log(logCollector)
+  //   console.log(logCollector)
   return logCollector
 }
 
 export function initializeSkulpt () {
   console.log('I am being initialized')
+  Sk.execLimit = 1000
+  Sk.retainGlobals = true
+  Sk.builtins.MEMORY = Sk.builtin.int_(0)
+  console.log(Sk.globals)
   Sk.configure({
     read: builtinRead,
     __future__: Sk.python3,
-    output: addToLogCollector
+    output: addToLogCollector,
+    execLimit: 1000,
+    retainGlobals: true
   })
   Sk.doOneTimeInitialization()
+
+  Sk.importModule('base')
   // Sk.importModule('location', false, false)
   skulptInitialized = true
 }

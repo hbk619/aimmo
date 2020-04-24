@@ -38,12 +38,12 @@ export class IDEEditor extends Component {
   }
 
   editorDidMount (editor) {
-    console.log('got here')
+    // console.log('got here')
     this.editor = editor
-    console.log(editor)
+    // console.log(editor)
     this.props.getCode()
     editor.onDidChangeModelContent(ev => {
-      console.log(this.editor.getValue())
+      // console.log(this.editor.getValue())
       this.props.editorChanged(this.editor.getValue())
     })
   }
