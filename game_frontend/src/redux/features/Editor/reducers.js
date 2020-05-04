@@ -3,7 +3,7 @@ import types from './types'
 import { RunCodeButtonStatus } from 'components/RunCodeButton'
 import { DEFAULT_CODE } from '../constants'
 
-const codeReducer = (state = {}, action) => {
+const codeReducer = (state = { pythonInitialized: false }, action) => {
   switch (action.type) {
     case types.GET_CODE_SUCCESS:
       return {
@@ -25,6 +25,11 @@ const codeReducer = (state = {}, action) => {
       return {
         ...state,
         code: DEFAULT_CODE
+      }
+    case 'PYTHON_INITIALIZED':
+      return {
+        ...state,
+        pythonInitialized: true
       }
     default:
       return state

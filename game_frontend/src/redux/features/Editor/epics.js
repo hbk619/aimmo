@@ -3,9 +3,17 @@ import { actions as analyticActions } from 'redux/features/Analytics'
 import { gameTypes } from 'redux/features/Game'
 import types from './types'
 import { Scheduler, of } from 'rxjs'
-import { map, mergeMap, catchError, debounceTime, mapTo } from 'rxjs/operators'
+import {
+  map,
+  mergeMap,
+  catchError,
+  debounceTime,
+  mapTo,
+  switchMap
+} from 'rxjs/operators'
 import { ofType } from 'redux-observable'
-import { runSkulpt } from '../Game/skulpt'
+// import { runSkulpt } from '../Game/skulpt'
+import { runAvatarCode } from '../Game/pyodide'
 
 const backgroundScheduler = Scheduler.async
 
@@ -70,8 +78,12 @@ const changeCodeEpic = (
 const nextActionEpic = (action$, state$, { api: { socket } }) =>
   action$.pipe(
     ofType(gameTypes.SOCKET_GAME_STATE_RECEIVED),
-    map(() => {
-      const nextAction = runSkulpt(state$.value.editor.code.codeOnServer)
+    switchMap(async () => {
+      const nextAction = await runAvatarCode(
+        state$.value.editor.code.codeOnServer,
+        state$.value.editor.code.pythonInitialized
+      )
+      console.log(nextAction)
       socket.emitAction(nextAction)
     }),
     mapTo({ type: 'dummy' })

@@ -16,7 +16,8 @@ import {
 } from 'rxjs/operators'
 import { ofType } from 'redux-observable'
 import { actions as analyticActions } from 'redux/features/Analytics'
-import { initializeSkulpt } from './skulpt'
+import { initializePyodide } from './pyodide'
+// import { initializeSkulpt } from './skulpt'
 
 const backgroundScheduler = Scheduler.async
 
@@ -30,6 +31,13 @@ const getConnectionParametersEpic = (action$, state$, { api: { get } }) =>
     )
   )
 
+const initializePyodideEpic = action$ =>
+  action$.pipe(
+    ofType(types.SOCKET_CONNECT_TO_GAME_REQUEST),
+    switchMap(initializePyodide),
+    mapTo({ type: 'PYTHON_INITIALIZED' })
+  )
+
 const gameLoadedEpic = action$ =>
   action$.pipe(
     ofType(types.SOCKET_CONNECT_TO_GAME_REQUEST),
@@ -37,7 +45,8 @@ const gameLoadedEpic = action$ =>
       action$.pipe(
         ofType(types.SOCKET_GAME_STATE_RECEIVED),
         first(),
-        tap(initializeSkulpt),
+        // switchMap(initializePyodide),
+        // tap(initializeSkulpt),
         mapTo(actions.gameLoaded())
       )
     )
@@ -80,5 +89,6 @@ export default {
   getConnectionParametersEpic,
   connectToGameEpic,
   gameLoadedEpic,
-  gameLoadedIntervalEpic
+  gameLoadedIntervalEpic,
+  initializePyodideEpic
 }
