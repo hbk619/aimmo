@@ -19,6 +19,10 @@ from simulation.django_communicator import DjangoCommunicator
 from simulation.game_runner import GameRunner
 from simulation.log_collector import LogCollector
 
+# from swagger_client.agones_api import SDKApi as AgonesAPI
+from swagger_client import ApiClient, Configuration, SDKApi as AgonesAPI, SdkEmpty
+from swagger_client.configuration import Configuration
+
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -30,6 +34,11 @@ communicator = DjangoCommunicator(
     django_api_url=django_api_url, completion_url=django_api_url + "complete/"
 )
 activity_monitor = ActivityMonitor(communicator)
+
+agones_api_client_config = Configuration()
+agones_api_client_config.host = f"localhost:{os.environ.get('AGONES_SDK_HTTP_PORT')}"
+swagger_api_client = ApiClient(configuration=agones_api_client_config)
+agones_api = AgonesAPI(api_client=swagger_api_client)
 
 
 def setup_application(should_clean_token=True):
@@ -165,6 +174,8 @@ class GameAPI(object):
             )
 
     async def send_updates_to_all(self):
+        LOGGER.info("health sent")
+        agones_api.health(SdkEmpty())
         try:
             socket_ids = self.socketio_server.manager.get_participants("/", None)
             await self.async_map(self.send_updates, socket_ids)
@@ -221,8 +232,9 @@ class GameAPI(object):
 
 
 def create_runner(port):
-    settings = json.loads(os.environ["settings"])
-    generator = getattr(map_generator, settings["GENERATOR"])(settings)
+    # settings = json.loads(os.environ["settings"])
+    generator = map_generator.Main({})
+    # generator = getattr(map_generator, settings["GENERATOR"])(settings)
     return GameRunner(
         game_state_generator=generator.get_game_state,
         communicator=communicator,
@@ -237,6 +249,8 @@ def run_game(port):
         game_state=game_runner.game_state, worker_manager=game_runner.worker_manager
     )
     game_runner.set_end_turn_callback(game_api.send_updates_to_all)
+    LOGGER.info("sending ready call")
+    agones_api.ready(SdkEmpty())
     asyncio.ensure_future(game_runner.run())
 
 
