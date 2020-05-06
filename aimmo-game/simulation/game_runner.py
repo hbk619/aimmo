@@ -77,7 +77,7 @@ class GameRunner:
 
     async def update(self):
         with GAME_TURN_TIME():
-            await self.update_workers()
+            # await self.update_workers()
             await self.update_simulation(
                 self.worker_manager.get_player_id_to_serialized_actions()
             )

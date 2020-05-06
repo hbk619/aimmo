@@ -3,7 +3,8 @@ from __future__ import absolute_import
 import unittest
 from json import dumps
 
-from game_manager import TOKEN_MAX_LENGTH, GameManager, KubernetesGameManager
+from _game_manager import TOKEN_MAX_LENGTH, GameManager
+from kubernetes_game_manager import KubernetesGameManager
 from httmock import HTTMock
 
 

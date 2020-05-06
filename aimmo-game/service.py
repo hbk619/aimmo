@@ -19,9 +19,9 @@ from simulation.django_communicator import DjangoCommunicator
 from simulation.game_runner import GameRunner
 from simulation.log_collector import LogCollector
 
-# from swagger_client.agones_api import SDKApi as AgonesAPI
-from swagger_client import ApiClient, Configuration, SDKApi as AgonesAPI, SdkEmpty
-from swagger_client.configuration import Configuration
+from agones.sdk_pb2_grpc import SDK as AgonesSDK, SDKStub as AgonesSDKStub, SDKServicer
+from agones import sdk_pb2
+import grpc
 
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -35,10 +35,8 @@ communicator = DjangoCommunicator(
 )
 activity_monitor = ActivityMonitor(communicator)
 
-agones_api_client_config = Configuration()
-agones_api_client_config.host = f"localhost:{os.environ.get('AGONES_SDK_HTTP_PORT')}"
-swagger_api_client = ApiClient(configuration=agones_api_client_config)
-agones_api = AgonesAPI(api_client=swagger_api_client)
+channel = grpc.insecure_channel(f"localhost:{os.environ['AGONES_SDK_GRPC_PORT']}")
+agones_stub = AgonesSDKStub(channel)
 
 
 def setup_application(should_clean_token=True):
@@ -174,8 +172,6 @@ class GameAPI(object):
             )
 
     async def send_updates_to_all(self):
-        LOGGER.info("health sent")
-        agones_api.health(SdkEmpty())
         try:
             socket_ids = self.socketio_server.manager.get_participants("/", None)
             await self.async_map(self.send_updates, socket_ids)
@@ -219,10 +215,8 @@ class GameAPI(object):
         serialized_game_state = self.game_state.serialize()
         session_data = await self.socketio_server.get_session(sid)
         worker = self.worker_manager.player_id_to_worker[session_data["id"]]
-        if worker.ready:
-            await self.socketio_server.emit(
-                "game-state", serialized_game_state, room=sid
-            )
+        # if worker.ready:
+        await self.socketio_server.emit("game-state", serialized_game_state, room=sid)
 
     async def _send_have_avatars_code_updated(self, sid):
         session_data = await self.socketio_server.get_session(sid)
@@ -250,7 +244,16 @@ def run_game(port):
     )
     game_runner.set_end_turn_callback(game_api.send_updates_to_all)
     LOGGER.info("sending ready call")
-    agones_api.ready(SdkEmpty())
+    empty_request = sdk_pb2.Empty()
+    agones_stub.Ready(empty_request)
+
+    def empty_response_generator():
+        while True:
+            LOGGER.info("sending health check")
+            emp_request = sdk_pb2.Empty()
+            yield emp_request
+
+    agones_stub.Health(empty_response_generator())
     asyncio.ensure_future(game_runner.run())
 
 

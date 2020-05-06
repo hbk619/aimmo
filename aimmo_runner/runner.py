@@ -97,25 +97,25 @@ def run(
             run_command(["python", "all_tests.py"])
         else:
             docker_scripts.build_docker_images(build_target=build_target)
-            docker_scripts.start_game_creator()
+            # docker_scripts.start_game_creator()
 
-    os.environ["NODE_ENV"] = "development" if settings.DEBUG else "production"
-    os.environ["SERVER_ENV"] = "local"
-    server = run_command_async(
-        ["python", _MANAGE_PY, "runserver"] + server_args, capture_output=capture_output
-    )
-    frontend_bundler = run_command_async(
-        ["node", _FRONTEND_BUNDLER_JS], capture_output=capture_output
-    )
-    PROCESSES.append(server)
-    PROCESSES.append(frontend_bundler)
+    # os.environ["NODE_ENV"] = "development" if settings.DEBUG else "production"
+    # os.environ["SERVER_ENV"] = "local"
+    # server = run_command_async(
+    #     ["python", _MANAGE_PY, "runserver"] + server_args, capture_output=capture_output
+    # )
+    # frontend_bundler = run_command_async(
+    #     ["node", _FRONTEND_BUNDLER_JS], capture_output=capture_output
+    # )
+    # PROCESSES.append(server)
+    # PROCESSES.append(frontend_bundler)
 
-    if server_wait is True:
-        try:
-            game.wait()
-        except NameError:
-            pass
+    # if server_wait is True:
+    #     try:
+    #         game.wait()
+    #     except NameError:
+    #         pass
 
-        server.wait()
+    #     server.wait()
 
     return PROCESSES

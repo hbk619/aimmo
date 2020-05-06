@@ -1,0 +1,23 @@
+apiVersion: "agones.dev/v1"
+kind: Fleet
+metadata:
+  name: aimmo-game
+spec:
+  replicas: 5
+  template:
+    spec:
+      ports:
+        - name: default
+          containerPort: 7654
+      template:
+        spec:
+          containers:
+            - name: aimmo-game
+              image: ocadotechnology/aimmo-game:test
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "24m"
+                limits:
+                  memory: "124Mi"
+                  cpu: "95m"
