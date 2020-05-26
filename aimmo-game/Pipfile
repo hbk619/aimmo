@@ -9,17 +9,21 @@ docker = "*"
 kubernetes = "*"
 prometheus-client = "*"
 aioresponses = "*"
-pytest-mock = "*"
 grpcio = "*"
 protobuf = "*"
-aiohttp = "*"
-idna-ssl = "*"
 google-api-python-client = "*"
-
-[requires]
-python_version = "3.6.7"
+idna-ssl = "*"
 
 [dev-packages]
-pydocstyle = "*"
-"autopep8" = "*"
 pytest = "*"
+pytest-mock = "*"
+pytest-asyncio = "*"
+black = "==19.10b0"
+httmock = "*"
+asynctest = "*"
+hypothesis = "*"
+mock = "*"
+pytest-aiohttp = "*"
+
+[requires]
+python_version = "3.7.7"
