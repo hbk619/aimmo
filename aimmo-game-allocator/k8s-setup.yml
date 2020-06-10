@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aimmo-game-allocator
+  labels:
+    app: game-allocator
+spec:
+  selector:
+    matchLabels:
+      app: game-allocator
+  template:
+    metadata:
+      labels:
+        app: game-allocator
+    spec:
+      serviceAccount: fleet-allocator
+      containers:
+        - name: game-allocator
+          image: allocator:test
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /allocator/healthz
+              port: 5000
+            initialDelaySeconds: 3
+            periodSeconds: 5

@@ -12,6 +12,7 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.response import Response
 from rest_framework.views import APIView
+import requests
 
 from . import forms
 from . import game_renderer
@@ -122,6 +123,14 @@ def mark_game_complete(request, id):
     game.static_data = request.body
     game.save()
     return HttpResponse("Done!")
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def connection_params_for_game(request, id):
+    game = get_object_or_404(Game, id=id)
+    if not game.can_user_play(request.user):
+        raise Http404
 
 
 class GameTokenView(APIView):

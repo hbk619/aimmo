@@ -7,6 +7,7 @@ from django.shortcuts import render, get_object_or_404
 
 from aimmo import app_settings, exceptions
 from .models import Game
+import requests
 
 
 def render_game(request, game):
@@ -37,7 +38,12 @@ def get_environment_connection_settings(game_id):
     :return: A dict object with all relevant settings.
     """
 
+    game_server_details = requests.get(
+        f"http://local.aimmo.codeforlife.education/allocator/game/{game_id}"
+    ).json()
+
     return {
+        "details": game_server_details,
         "game_url_base": _add_game_port_to_game_base(game_id),
         "game_url_path": app_settings.GAME_SERVER_URL_FUNCTION(game_id)[1],
         "game_ssl_flag": app_settings.GAME_SERVER_SSL_FLAG,
